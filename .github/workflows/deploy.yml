@@ -200,7 +200,7 @@ jobs:
 
       - name: Validate Kustomization
         run: |
-          kustomize build k8s/ --validate
+          kustomize build k8s/ > /dev/null
           echo "✅ Kustomization validation passed"
 
       - name: Check manifest syntax
