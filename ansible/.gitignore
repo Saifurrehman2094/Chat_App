@@ -1,0 +1,75 @@
+# Ansible .gitignore - SENSITIVE FILES PROTECTION
+
+# Inventory files with sensitive data (ALWAYS EXCLUDE)
+inventory.ini
+host_vars/
+group_vars/
+inventory/*.ini
+inventory/*.yml
+inventory/*.yaml
+hosts.yml
+hosts.yaml
+inventory.backup
+
+# Ansible execution artifacts
+*.retry
+*.backup
+*.bak
+*~
+
+# SSH keys and sensitive files (CRITICAL)
+*.pem
+*.key
+*.pub
+ssh-key*
+private-key*
+~/.ssh/
+.ssh/
+aws-*.pem
+
+# Ansible vault files (CRITICAL)
+vault.yml
+vault.yaml
+*.vault
+.vault_password
+.vault_pass
+.vaultpass
+ansible-vault-pass
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+secrets.yml
+secrets.yaml
+*.secret
+
+# IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-*
+.DS_Store
+*.code-workspace
+
+# Python cache and dependencies
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+ENV/
+
+# Logs and temp
+*.log
+logs/
+*.tmp
+
+# Keep examples
+!inventory.example.ini
+!group_vars/example
+!host_vars/example

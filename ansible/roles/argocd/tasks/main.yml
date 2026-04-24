@@ -1,0 +1,137 @@
+---
+# ArgoCD Role - Deploy and configure ArgoCD for GitOps
+
+- name: Create argocd namespace
+  shell: /snap/bin/microk8s kubectl create namespace argocd --dry-run=client -o yaml | /snap/bin/microk8s kubectl apply -f -
+  changed_when: false
+
+- name: Add ArgoCD Helm repository
+  shell: helm repo add argo https://argoproj.github.io/argo-helm
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  changed_when: true
+  retries: 3
+  delay: 10
+
+- name: Update Helm repositories
+  shell: helm repo update
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  changed_when: true
+
+- name: Create ArgoCD Helm values file
+  copy:
+    content: |
+      # ArgoCD Helm Values
+      configs:
+        secret:
+          # Generate with: openssl rand -base64 32
+          argocdServerAdminPassword: "{{ argocd_admin_password }}"
+
+      server:
+        service:
+          type: NodePort
+          nodePort: 30081
+
+      repoServer:
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+
+      controller:
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+
+      dex:
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+    dest: /tmp/argocd-values.yaml
+
+- name: Deploy ArgoCD via Helm
+  shell: |
+    helm install argocd argo/argo-cd \
+      --namespace argocd \
+      --values /tmp/argocd-values.yaml \
+      --wait \
+      --timeout 5m
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  register: argocd_install
+  failed_when:
+    - argocd_install.rc != 0
+    - "'already exists' not in argocd_install.stderr"
+  changed_when:
+    - "'already exists' not in argocd_install.stderr"
+
+- name: Wait for ArgoCD server to be ready
+  shell: /snap/bin/microk8s kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
+  retries: 5
+  delay: 10
+
+- name: Get ArgoCD server pod
+  shell: /snap/bin/microk8s kubectl get pods -n argocd -l app.kubernetes.io/name=argocd-server -o jsonpath='{.items[0].metadata.name}'
+  register: argocd_pod
+  changed_when: false
+
+- name: Display ArgoCD pod
+  debug:
+    msg: "ArgoCD Server Pod: {{ argocd_pod.stdout }}"
+
+- name: Get ArgoCD admin password
+  shell: /snap/bin/microk8s kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath='{.data.password}' | base64 -d
+  register: argocd_password
+  changed_when: false
+
+- name: Display ArgoCD access information
+  debug:
+    msg: |
+      ArgoCD is ready at: http://{{ ansible_host }}:30081
+      Admin Username: admin
+      Admin Password: {{ argocd_password.stdout }}
+      To access via port-forward: kubectl port-forward -n argocd svc/argocd-server 8080:443
+
+- name: Copy ArgoCD Application manifest
+  copy:
+    src: argocd-application.yaml
+    dest: /tmp/argocd-application.yaml
+  ignore_errors: yes
+
+- name: Apply ArgoCD Application (if manifest exists)
+  shell: /snap/bin/microk8s kubectl apply -f /tmp/argocd-application.yaml
+  register: argocd_app_result
+  failed_when: false
+  changed_when: argocd_app_result.rc == 0
+  ignore_errors: yes
+
+- name: Get ArgoCD services
+  shell: /snap/bin/microk8s kubectl get svc -n argocd
+  register: argocd_services
+  changed_when: false
+
+- name: Display ArgoCD services
+  debug:
+    var: argocd_services.stdout_lines
+
+- name: Test ArgoCD API connectivity
+  shell: curl -k -s https://localhost:30081/api/version
+  register: argocd_api_test
+  changed_when: false
+  failed_when: false
+
+- name: Display ArgoCD API test (may fail due to certificate)
+  debug:
+    msg: "ArgoCD API response: {{ argocd_api_test.stdout | default('Connection OK, certificate issue ignored') }}"

@@ -1,0 +1,161 @@
+---
+# MySQL Deployment
+# Runs MySQL database for ChatApp
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: chatapp
+  labels:
+    app: mysql
+spec:
+  replicas: 1  # Single instance for now; scale with StatefulSet for HA
+  selector:
+    matchLabels:
+      app: mysql
+  
+  template:
+    metadata:
+      labels:
+        app: mysql
+        tier: database
+      annotations:
+        prometheus.io/scrape: "false"
+    
+    spec:
+      # Security context
+      securityContext:
+        fsGroup: 999  # MySQL user group
+      
+      containers:
+        - name: mysql
+          image: chatapp-mysql:latest  # Built from Chat_App/mysql/Dockerfile
+          imagePullPolicy: IfNotPresent
+          
+          # Ports
+          ports:
+            - containerPort: 3306
+              name: mysql
+              protocol: TCP
+          
+          # Environment variables
+          env:
+            - name: MYSQL_DATABASE
+              value: "chat_app"
+            
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: mysql-user
+            
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: mysql-password
+            
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: mysql-root-password
+          
+          # Volume mounts
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+            - name: mysql-config
+              mountPath: /etc/mysql/conf.d
+          
+          # Resource requests and limits
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          
+          # Liveness probe - checks if MySQL is alive
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -u root -p$MYSQL_ROOT_PASSWORD
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          
+          # Readiness probe - checks if MySQL is ready to accept connections
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -u root -p$MYSQL_ROOT_PASSWORD
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          
+          # Security context for container
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 999  # MySQL user
+            capabilities:
+              drop:
+                - ALL
+      
+      # Volumes
+      volumes:
+        - name: mysql-data
+          persistentVolumeClaim:
+            claimName: mysql-pvc
+        
+        - name: mysql-config
+          configMap:
+            name: mysql-config
+            defaultMode: 0644
+      
+      # Restart policy
+      restartPolicy: Always
+      
+      # Node affinity (optional)
+      affinity:
+        # Pod anti-affinity could be used for HA setup
+        # nodeAffinity:
+        #   requiredDuringSchedulingIgnoredDuringExecution:
+        #     nodeSelectorTerms:
+        #       - matchExpressions:
+        #           - key: kubernetes.io/hostname
+        #             operator: In
+        #             values:
+        #               - microk8s-primary
+
+---
+# MySQL Configuration ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config
+  namespace: chatapp
+  labels:
+    app: mysql
+data:
+  my.cnf: |
+    [mysqld]
+    character-set-server = utf8mb4
+    collation-server = utf8mb4_unicode_ci
+    default_storage_engine = InnoDB
+    max_connections = 100
+    wait_timeout = 28800
+    interactive_timeout = 28800
+    log_error = /var/log/mysql/error.log
+    slow_query_log = 1
+    slow_query_log_file = /var/log/mysql/slow.log
+    long_query_time = 2

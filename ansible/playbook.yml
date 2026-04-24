@@ -1,0 +1,107 @@
+---
+# Main Ansible Playbook for ChatApp Kubernetes Deployment
+# Orchestrates installation of Docker, MicroK8s, kubectl, and ArgoCD
+
+- name: ChatApp Infrastructure Setup
+  hosts: k8s_nodes
+  gather_facts: yes
+  become: yes
+
+  pre_tasks:
+    - name: Display deployment information
+      debug:
+        msg: |
+          =========================================
+          ChatApp Kubernetes Cluster Setup
+          =========================================
+          Host: {{ inventory_hostname }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Python: {{ ansible_python_version }}
+          Project: {{ project_name }}
+          Environment: {{ environment }}
+          =========================================
+
+    - name: Check if system is Ubuntu
+      fail:
+        msg: "This playbook requires Ubuntu. Current OS: {{ ansible_distribution }}"
+      when: ansible_distribution != "Ubuntu"
+
+  roles:
+    # Stage 1: System preparation
+    - name: Install system dependencies and Docker
+      role: common
+      tags:
+        - system
+        - docker
+
+    # Stage 2: MicroK8s installation
+    - name: Install and configure MicroK8s
+      role: microk8s
+      tags:
+        - microk8s
+        - kubernetes
+
+    # Stage 3: kubectl setup
+    - name: Configure kubectl access
+      role: kubectl
+      tags:
+        - kubectl
+
+    # Stage 4: ArgoCD deployment
+    - name: Deploy ArgoCD for GitOps
+      role: argocd
+      tags:
+        - argocd
+        - gitops
+
+  post_tasks:
+    - name: Display cluster status
+      debug:
+        msg: |
+          =========================================
+          Deployment Complete!
+          =========================================
+          MicroK8s Status: 
+          $(microk8s status)
+
+          Cluster Info:
+          $(microk8s kubectl cluster-info)
+
+          Nodes:
+          $(microk8s kubectl get nodes -o wide)
+
+          Next Steps:
+          1. Deploy ChatApp manifests:
+             kubectl apply -f ../k8s/
+
+          2. Monitor ArgoCD:
+             kubectl port-forward -n argocd svc/argocd-server 8080:443
+             Access: https://localhost:8080
+
+          3. Check application pods:
+             kubectl get pods -n chatapp
+
+          =========================================
+
+    - name: Save kubeconfig for local access
+      fetch:
+        src: /home/ubuntu/.kube/config
+        dest: ./kubeconfig_{{ inventory_hostname }}
+        flat: yes
+      ignore_errors: yes
+
+  # Handlers cleanup
+  handlers:
+    - name: Restart docker
+      systemd:
+        name: docker
+        state: restarted
+
+    - name: Restart snapd
+      systemd:
+        name: snapd
+        state: restarted
+
+    - name: Reload system daemon
+      systemd:
+        daemon_reload: yes

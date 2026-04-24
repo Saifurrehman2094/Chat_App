@@ -1,0 +1,43 @@
+# MySQL .gitignore - Database & Docker files
+
+# Database data files (CRITICAL - SENSITIVE)
+data/
+*.ibd
+ib_logfile*
+ib_buffer_pool
+
+# Database logs (may contain sensitive info)
+logs/
+*.log
+mysql-error.log
+mysql-slow.log
+mysql-general.log
+
+# MySQL configuration overrides
+my.cnf.local
+my.cnf.backup
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# OS files
+Thumbs.db
+ehthumbs.db
+
+# Backup files
+*.backup
+*.bak
+*.sql.backup
+*~
+
+# Docker artifacts
+.dockerignore.local

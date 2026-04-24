@@ -1,0 +1,21 @@
+---
+# MySQL Internal Service
+# Provides stable DNS name for backend to connect
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: chatapp
+  labels:
+    app: mysql
+spec:
+  selector:
+    app: mysql
+  type: ClusterIP # Internal service only
+  ports:
+    - port: 3306
+      targetPort: 3306
+      protocol: TCP
+      name: mysql
+  clusterIP: None # Headless service for StatefulSet (optional)

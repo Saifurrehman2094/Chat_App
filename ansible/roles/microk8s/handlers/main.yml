@@ -1,0 +1,10 @@
+---
+# MicroK8s Role Handlers
+
+- name: Restart microk8s
+  shell: /snap/bin/microk8s stop && sleep 5 && /snap/bin/microk8s start
+  retries: 3
+  delay: 10
+
+- name: Reload microk8s
+  shell: /snap/bin/microk8s refresh

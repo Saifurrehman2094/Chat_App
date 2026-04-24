@@ -1,0 +1,126 @@
+---
+# ArgoCD Application for ChatApp
+# Automatically syncs Kubernetes manifests from this repository
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: chatapp
+  namespace: argocd
+  
+  # Finalizers ensure proper cleanup
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+
+spec:
+  # ArgoCD project (default allows all resources)
+  project: default
+  
+  # Source repository configuration
+  source:
+    repoURL: https://github.com/{{ GITHUB_USERNAME }}/Chat_App
+    targetRevision: main
+    path: k8s/
+    
+    # Using Kustomize for manifest management
+    kustomize:
+      # Enable Kustomize built-ins
+      buildOptions: |
+        --enable-alpha-plugins
+      # Path to kustomization.yaml
+      apiVersion: kustomize.config.k8s.io/v1beta1
+    
+    # Alternative: Use plain YAML (comment out kustomize above if using this)
+    # plugin: {}
+
+  # Destination cluster and namespace
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: chatapp
+
+  # Sync policy - automatic sync on repository changes
+  syncPolicy:
+    # Automatic synchronization
+    automated:
+      # Prune resources that are not in the repository
+      prune: true
+      
+      # Self-heal: automatically fix deviations from git state
+      selfHeal: true
+      
+      # Allow empty means don't sync if manifests are empty/invalid
+      allow:
+        empty: false
+    
+    # Sync options
+    syncOptions:
+      # Create namespace if it doesn't exist
+      - CreateNamespace=true
+      
+      # Respect kubectl.kubernetes.io/restartedAt annotation
+      - RespectIgnoreDifferences=true
+    
+    # Retry configuration
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Information configuration
+  info:
+    - name: GitHub
+      value: https://github.com/{{ GITHUB_USERNAME }}/Chat_App
+
+  # Additional settings
+  revisionHistoryLimit: 5
+
+---
+# AppProject for ChatApp (optional, for RBAC)
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: chatapp-project
+  namespace: argocd
+spec:
+  # RBAC configuration
+  roles:
+    - name: developers
+      policies:
+        - p, proj:chatapp-project:developers, applications, get, chatapp-project/*, allow
+        - p, proj:chatapp-project:developers, applications, sync, chatapp-project/*, deny
+      groups:
+        - your-github-org:dev-team
+    
+    - name: admins
+      policies:
+        - p, proj:chatapp-project:admins, applications, *, chatapp-project/*, allow
+      groups:
+        - your-github-org:devops-team
+
+  # Source repositories allowed
+  sourceRepos:
+    - 'https://github.com/{{ GITHUB_USERNAME }}/Chat_App'
+
+  # Destinations allowed
+  destinations:
+    - namespace: 'chatapp'
+      server: https://kubernetes.default.svc
+    - namespace: 'argocd'
+      server: https://kubernetes.default.svc
+
+  # Cluster resources (allow all)
+  clusterResourceBlacklist:
+    - group: ''
+      kind: ResourceQuota
+    - group: ''
+      kind: LimitRange
+
+  # Namespace resources (allow all)
+  namespaceResourceBlacklist: []
+
+  # Deny listed resources
+  namespaceResourceBlacklist:
+    - group: ''
+      kind: Pod

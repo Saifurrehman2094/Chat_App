@@ -1,0 +1,45 @@
+# Nginx .gitignore - Reverse Proxy & Web Server files
+
+# Nginx runtime files
+logs/
+*.log
+access.log
+error.log
+nginx.pid
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Configuration overrides
+nginx.conf.local
+nginx.conf.backup
+
+# IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# OS files
+Thumbs.db
+ehthumbs.db
+
+# Backup files
+*.backup
+*.bak
+*~
+
+# Docker artifacts
+.dockerignore.local
+
+# SSL certificates (if stored locally - SENSITIVE)
+*.pem
+*.key
+*.crt
+*.csr
+certs/
+keys/
+ssl/

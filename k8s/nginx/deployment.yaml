@@ -1,0 +1,155 @@
+---
+# Nginx Gateway Deployment
+# Reverse proxy for frontend, backend, and WebSocket
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-gateway
+  namespace: chatapp
+  labels:
+    app: nginx-gateway
+spec:
+  replicas: 1 # Single nginx gateway (can be scaled for HA)
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+  selector:
+    matchLabels:
+      app: nginx-gateway
+
+  template:
+    metadata:
+      labels:
+        app: nginx-gateway
+        tier: gateway
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "80"
+        prometheus.io/path: "/health"
+
+    spec:
+      # Security context
+      securityContext:
+        fsGroup: 101
+
+      # Pod priority (important gateway)
+      priorityClassName: system-cluster-critical
+
+      containers:
+        - name: nginx-gateway
+          image: chatapp-nginx:latest # Built from Chat_App/nginx/Dockerfile
+          imagePullPolicy: IfNotPresent
+
+          # Ports
+          ports:
+            - containerPort: 80
+              name: http
+              protocol: TCP
+            - containerPort: 443
+              name: https
+              protocol: TCP
+
+          # Volume mounts
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d
+              readOnly: true
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+
+          # Resource requests and limits
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+
+          # Liveness probe
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # Readiness probe
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
+
+          # Security context
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 101
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - NET_BIND_SERVICE
+
+      # Volumes
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: nginx-gateway-config
+            defaultMode: 0644
+        - name: nginx-cache
+          emptyDir: {}
+
+      # Node affinity (optional, pin to specific node)
+      # affinity:
+      #   nodeAffinity:
+      #     requiredDuringSchedulingIgnoredDuringExecution:
+      #       nodeSelectorTerms:
+      #         - matchExpressions:
+      #             - key: kubernetes.io/hostname
+      #               operator: In
+      #               values:
+      #                 - microk8s-primary
+
+      # Restart policy
+      restartPolicy: Always
+
+---
+# HorizontalPodAutoscaler for Nginx Gateway (optional)
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nginx-gateway-hpa
+  namespace: chatapp
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nginx-gateway
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

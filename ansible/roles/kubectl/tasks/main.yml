@@ -1,0 +1,82 @@
+---
+# kubectl Role - Configure kubectl access to MicroK8s cluster
+
+- name: Check if kubectl is installed
+  shell: which kubectl
+  register: kubectl_installed
+  changed_when: false
+  failed_when: false
+
+- name: Download kubectl binary
+  shell: |
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    chmod +x kubectl
+    mv kubectl /usr/local/bin/
+  when: kubectl_installed.rc != 0
+
+- name: Verify kubectl installation
+  shell: kubectl version --client
+  register: kubectl_version
+  changed_when: false
+
+- name: Display kubectl version
+  debug:
+    msg: "{{ kubectl_version.stdout }}"
+
+- name: Create kubectl completion script
+  shell: kubectl completion bash > /etc/bash_completion.d/kubectl
+  changed_when: true
+
+- name: Add kubectl alias to bashrc
+  lineinfile:
+    path: /home/ubuntu/.bashrc
+    line: "alias kubectl='/snap/bin/microk8s kubectl'"
+    create: yes
+    state: present
+
+- name: Setup kubeconfig context
+  shell: |
+    kubectl config set-context chatapp-microk8s --cluster=microk8s-cluster --user=admin
+    kubectl config use-context chatapp-microk8s
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  changed_when: false
+  ignore_errors: yes
+
+- name: Verify kubectl cluster access
+  shell: kubectl cluster-info
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  register: cluster_info
+  changed_when: false
+
+- name: Display cluster info
+  debug:
+    var: cluster_info.stdout
+
+- name: Get nodes with kubectl
+  shell: kubectl get nodes -o wide
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  register: nodes_info
+  changed_when: false
+
+- name: Display nodes
+  debug:
+    var: nodes_info.stdout
+
+- name: Install helm (optional, for package management)
+  shell: |
+    curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  changed_when: true
+  retries: 3
+  delay: 10
+
+- name: Verify helm installation
+  shell: helm version
+  register: helm_version
+  changed_when: false
+
+- name: Display helm version
+  debug:
+    msg: "{{ helm_version.stdout }}"

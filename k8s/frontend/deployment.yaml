@@ -1,0 +1,178 @@
+---
+# Frontend React + Vite Deployment
+# Serves SPA and static assets via nginx
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: chatapp
+  labels:
+    app: frontend
+spec:
+  replicas: 2 # 2 replicas for availability
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+  selector:
+    matchLabels:
+      app: frontend
+
+  template:
+    metadata:
+      labels:
+        app: frontend
+        tier: web
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "80"
+        prometheus.io/path: "/health"
+
+    spec:
+      # Security context
+      securityContext:
+        fsGroup: 101 # nginx group
+
+      containers:
+        - name: frontend
+          image: chatapp-frontend:latest # Built from Chat_App/frontend/Dockerfile
+          imagePullPolicy: IfNotPresent
+
+          # Build args passed at deployment (for ArgoCD updates)
+          # These should be updated by CI/CD pipeline
+          # If hardcoded, update before deployment
+
+          # Ports
+          ports:
+            - containerPort: 80
+              name: http
+              protocol: TCP
+
+          # Environment variables
+          env:
+            - name: NODE_ENV
+              value: "production"
+
+          # Volume mounts
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d
+              readOnly: true
+
+          # Resource requests and limits
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+
+          # Liveness probe
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # Readiness probe
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
+
+          # Security context
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 101 # nginx user
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - NET_BIND_SERVICE
+
+      # Volumes
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: nginx-frontend-config
+            defaultMode: 0644
+
+      # Pod affinity
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - frontend
+                topologyKey: kubernetes.io/hostname
+
+      # Restart policy
+      restartPolicy: Always
+
+---
+# Frontend Nginx Configuration ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-frontend-config
+  namespace: chatapp
+  labels:
+    app: frontend
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name _;
+        root /usr/share/nginx/html;
+        
+        gzip on;
+        gzip_types text/plain text/css application/json application/javascript;
+        gzip_min_length 1000;
+        
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        
+        location /health {
+            access_log off;
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+        
+        location / {
+            try_files $uri $uri/ /index.html;
+            
+            location = /index.html {
+                add_header Cache-Control "no-cache, no-store, must-revalidate";
+            }
+            
+            location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+                add_header Cache-Control "public, max-age=31536000, immutable";
+            }
+        }
+        
+        location ~ /\. {
+            deny all;
+            access_log off;
+            log_not_found off;
+        }
+    }

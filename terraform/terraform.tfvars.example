@@ -1,0 +1,51 @@
+# Terraform Variables Example
+# Copy this file to terraform.tfvars and fill in your values
+# IMPORTANT: terraform.tfvars contains sensitive information and should NOT be committed to git
+
+# AWS Configuration
+aws_region = "us-east-1"
+
+# Deployment Configuration
+environment = "dev"
+project_name = "chatapp"
+
+# Network Configuration
+vpc_cidr              = "10.0.0.0/16"
+subnet_cidr           = "10.0.1.0/24"
+availability_zone     = "us-east-1a"
+enable_dns_hostnames  = true
+enable_dns_support    = true
+
+# EC2 Configuration
+instance_type          = "t2.medium"      # 2 vCPU, 4 GB RAM - Free Tier eligible, suitable for microk8s
+root_volume_size       = 50              # 50 GB storage for OS + containers
+root_volume_type       = "gp3"           # GP3 is newer and more cost-effective than GP2
+instance_name          = "chatapp-microk8s-primary"
+associate_public_ip    = true            # Needed for external access
+use_elastic_ip         = false           # Set to true if you want a static IP
+
+# OS Configuration
+ubuntu_version = "22.04"  # Ubuntu 22.04 LTS (Jammy) - stable and well-supported
+
+# SSH Access
+# IMPORTANT: Create this key pair in AWS before running Terraform
+# AWS CLI: aws ec2 create-key-pair --key-name chatapp-key --query 'KeyMaterial' --output text > chatapp-key.pem
+key_pair_name = "chatapp-key"  # Replace with your key pair name
+
+# Security Configuration
+# WARNING: In production, restrict SSH access to specific IPs
+# allowed_ssh_cidrs should be ["YOUR_IP/32"] instead of ["0.0.0.0/0"]
+allowed_ssh_cidrs   = ["0.0.0.0/0"]   # CHANGE THIS IN PRODUCTION!
+allowed_http_cidrs  = ["0.0.0.0/0"]
+
+# Tags
+tags = {
+  Application = "ChatApp"
+  Deployment  = "Kubernetes"
+  Environment = "dev"
+  Owner       = "DevOps Team"
+  CostCenter  = "Engineering"
+}
+
+# Additional Configuration
+enable_ipv6 = false

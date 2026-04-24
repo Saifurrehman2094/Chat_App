@@ -1,0 +1,306 @@
+# ============================================================================
+# COMPREHENSIVE GITIGNORE FOR CHAT APP - MULTI-TIER DEPLOYMENT
+# ============================================================================
+
+# ============================================================================
+# 1. ENVIRONMENT & CONFIGURATION FILES (SENSITIVE)
+# ============================================================================
+
+# Environment variables (ALL .env files are sensitive)
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# Terraform secrets and state files
+terraform.tfvars
+terraform.tfvars.json
+*.auto.tfvars
+*.auto.tfvars.json
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log
+
+# Ansible secrets and inventories with real IPs
+ansible/inventory.ini
+ansible/*.pem
+ansible/*.key
+ansible/group_vars/*/vault.yml
+ansible/host_vars/*/vault.yml
+.vault-password
+
+# AWS credentials and profiles
+.aws/
+aws-credentials.txt
+AWS_KEYS.txt
+
+# SSH keys (SENSITIVE)
+*.pem
+*.key
+!*.example.pem
+!*.example.key
+~/.ssh/
+
+# Docker secrets
+docker-compose.override.yml
+.dockercfg
+.docker/
+
+# ============================================================================
+# 2. DEPENDENCY & BUILD ARTIFACTS
+# ============================================================================
+
+# Node.js dependencies and build artifacts
+node_modules/
+package-lock.json
+npm-debug.log
+yarn-error.log
+dist/
+build/
+.next/
+
+# Backend node cache
+backend/node_modules/
+backend/dist/
+backend/build/
+
+# Frontend build
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+
+# Python cache and dependencies
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ============================================================================
+# 3. IDE & EDITOR FILES
+# ============================================================================
+
+# VS Code
+.vscode/
+.vscode-test/
+.history/
+*.code-workspace
+
+# JetBrains IDEs
+.idea/
+.idea_modules/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim/Neovim
+*.swp
+*.swo
+*~
+.vim/
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# Nano
+.nano_history
+
+# ============================================================================
+# 4. OPERATING SYSTEM FILES
+# ============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+.directory
+
+# ============================================================================
+# 5. LOG FILES & TEMPORARY DATA
+# ============================================================================
+
+# Log files
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Application logs
+backend/logs/
+backend/*.log
+frontend/*.log
+
+# Database logs and temp files
+mysql/logs/
+mysql/data/
+mysql/*.log
+*.sql.backup
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*~
+.cache/
+
+# ============================================================================
+# 6. COVERAGE & TESTING
+# ============================================================================
+
+# Test coverage reports
+coverage/
+.nyc_output/
+__coverage__/
+.coverage
+htmlcov/
+
+# Jest
+.jest-cache/
+
+# Mocha
+.mocha-cache/
+
+# ============================================================================
+# 7. DOCKER & KUBERNETES
+# ============================================================================
+
+# Docker build cache
+.docker/
+.dockerignore
+
+# Kubernetes local config
+kubeconfig
+.kube/
+kind-config.yaml
+minikube-config
+microk8s-config
+
+# Docker compose overrides
+docker-compose.override.yml
+docker-compose*.local.yml
+
+# ============================================================================
+# 8. PLATFORM-SPECIFIC EXCLUSIONS
+# ============================================================================
+
+# Kubernetes manifests with real secrets (but keep examples)
+!k8s/secrets-template.yaml
+k8s/secrets-*.yaml
+
+# Terraform examples (keep them, exclude vars)
+!terraform/terraform.tfvars.example
+!ansible/inventory.example.ini
+
+# ============================================================================
+# 9. THIRD-PARTY & LOCK FILES (OPTIONAL - Uncomment if needed)
+# ============================================================================
+
+# Uncomment if you want to commit lock files (for reproducibility)
+# package-lock.json
+# yarn.lock
+# composer.lock
+
+# ============================================================================
+# 10. CI/CD SECRETS & ARTIFACTS
+# ============================================================================
+
+# GitHub Actions
+.github/workflows/secrets.yml
+.github/workflows/*-secrets-*.yml
+
+# GitHub token
+.github_token
+github_token.txt
+
+# CI/CD artifacts
+.circleci/config-local.yml
+.travis-local.yml
+
+# ============================================================================
+# 11. MISC PROJECT FILES
+# ============================================================================
+
+# Keep documentation but exclude sensitive docs
+!docs/
+docs/SECRETS.md
+docs/API_KEYS.md
+docs/*-credentials.md
+
+# Exclude but keep example files
+!*.example
+!*.example.md
+!*.template
+
+# Local configuration
+local.conf
+*.local.conf
+config.local.js
+
+# ============================================================================
+# SUMMARY OF EXCLUDED DIRECTORIES & FILES
+# ============================================================================
+# This .gitignore protects:
+# ✓ AWS credentials and secrets
+# ✓ Terraform state files and variable files
+# ✓ SSH keys and private keys
+# ✓ Environment variables (.env files)
+# ✓ Ansible inventories with real IPs
+# ✓ Docker credentials
+# ✓ node_modules and build artifacts
+# ✓ IDE configuration files
+# ✓ OS-specific files
+# ✓ Log files and cache
+# ✓ Test coverage reports
+# ✓ Kubernetes local configs
+#
+# Safe to upload to GitHub after this is applied!
+# ============================================================================

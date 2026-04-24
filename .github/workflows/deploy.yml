@@ -1,0 +1,270 @@
+name: Build and Deploy ChatApp
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "nginx/**"
+      - "mysql/**"
+      - "k8s/**"
+      - ".github/workflows/deploy.yml"
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+env:
+  DOCKER_REGISTRY: docker.io
+  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  GIT_COMMIT_SHA: ${{ github.sha }}
+  GIT_BRANCH: ${{ github.ref_name }}
+  INSTANCE_IP: ${{ secrets.EC2_INSTANCE_IP }}
+
+jobs:
+  # Job 1: Build and push Docker images
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      backend-tag: ${{ steps.tags.outputs.backend-tag }}
+      frontend-tag: ${{ steps.tags.outputs.frontend-tag }}
+      nginx-tag: ${{ steps.tags.outputs.nginx-tag }}
+      mysql-tag: ${{ steps.tags.outputs.mysql-tag }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Generate image tags
+        id: tags
+        run: |
+          SHORT_SHA=$(echo ${{ env.GIT_COMMIT_SHA }} | cut -c1-7)
+
+          echo "backend-tag=${{ env.DOCKER_USERNAME }}/chatapp-backend:${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "backend-tag-latest=${{ env.DOCKER_USERNAME }}/chatapp-backend:latest" >> $GITHUB_OUTPUT
+
+          echo "frontend-tag=${{ env.DOCKER_USERNAME }}/chatapp-frontend:${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "frontend-tag-latest=${{ env.DOCKER_USERNAME }}/chatapp-frontend:latest" >> $GITHUB_OUTPUT
+
+          echo "nginx-tag=${{ env.DOCKER_USERNAME }}/chatapp-nginx:${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "nginx-tag-latest=${{ env.DOCKER_USERNAME }}/chatapp-nginx:latest" >> $GITHUB_OUTPUT
+
+          echo "mysql-tag=${{ env.DOCKER_USERNAME }}/chatapp-mysql:${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "mysql-tag-latest=${{ env.DOCKER_USERNAME }}/chatapp-mysql:latest" >> $GITHUB_OUTPUT
+
+      # Backend build and push
+      - name: Build and push Backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ steps.tags.outputs.backend-tag }}
+            ${{ steps.tags.outputs.backend-tag-latest }}
+          cache-from: type=registry,ref=${{ env.DOCKER_USERNAME }}/chatapp-backend:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKER_USERNAME }}/chatapp-backend:buildcache,mode=max
+
+      # Frontend build and push
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ steps.tags.outputs.frontend-tag }}
+            ${{ steps.tags.outputs.frontend-tag-latest }}
+          build-args: |
+            VITE_BACKEND_URL=http://${{ secrets.EC2_INSTANCE_IP }}:30080
+          cache-from: type=registry,ref=${{ env.DOCKER_USERNAME }}/chatapp-frontend:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKER_USERNAME }}/chatapp-frontend:buildcache,mode=max
+
+      # Nginx build and push
+      - name: Build and push Nginx image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./nginx
+          file: ./nginx/Dockerfile
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ steps.tags.outputs.nginx-tag }}
+            ${{ steps.tags.outputs.nginx-tag-latest }}
+          cache-from: type=registry,ref=${{ env.DOCKER_USERNAME }}/chatapp-nginx:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKER_USERNAME }}/chatapp-nginx:buildcache,mode=max
+
+      # MySQL build and push
+      - name: Build and push MySQL image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./mysql
+          file: ./mysql/Dockerfile
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ steps.tags.outputs.mysql-tag }}
+            ${{ steps.tags.outputs.mysql-tag-latest }}
+          cache-from: type=registry,ref=${{ env.DOCKER_USERNAME }}/chatapp-mysql:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKER_USERNAME }}/chatapp-mysql:buildcache,mode=max
+
+      - name: Image build summary
+        run: |
+          echo "🐳 Docker Images Built:"
+          echo "- Backend: ${{ steps.tags.outputs.backend-tag }}"
+          echo "- Frontend: ${{ steps.tags.outputs.frontend-tag }}"
+          echo "- Nginx: ${{ steps.tags.outputs.nginx-tag }}"
+          echo "- MySQL: ${{ steps.tags.outputs.mysql-tag }}"
+
+  # Job 2: Update Kubernetes manifests with new image tags
+  update-manifests:
+    name: Update Kubernetes Manifests
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update Backend image tag
+        run: |
+          sed -i "s|image: chatapp-backend:.*|image: ${{ needs.build.outputs.backend-tag }}|g" k8s/backend/deployment.yaml
+
+      - name: Update Frontend image tag
+        run: |
+          sed -i "s|image: chatapp-frontend:.*|image: ${{ needs.build.outputs.frontend-tag }}|g" k8s/frontend/deployment.yaml
+
+      - name: Update Nginx image tag
+        run: |
+          sed -i "s|image: chatapp-nginx:.*|image: ${{ needs.build.outputs.nginx-tag }}|g" k8s/nginx/deployment.yaml
+
+      - name: Update MySQL image tag
+        run: |
+          sed -i "s|image: chatapp-mysql:.*|image: ${{ needs.build.outputs.mysql-tag }}|g" k8s/mysql/deployment.yaml
+
+      - name: Commit and push manifest updates
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          # Check if there are changes
+          if git diff --quiet; then
+            echo "✅ No changes to commit"
+          else
+            git add k8s/**/*.yaml
+            git commit -m "chore: update image tags for commit ${{ env.GIT_COMMIT_SHA }}"
+            git push origin ${{ env.GIT_BRANCH }}
+            echo "✅ Manifest updates pushed"
+          fi
+
+  # Job 3: Validate Kubernetes manifests
+  validate:
+    name: Validate Kubernetes Manifests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Validate Kustomization
+        run: |
+          kustomize build k8s/ --validate
+          echo "✅ Kustomization validation passed"
+
+      - name: Check manifest syntax
+        run: |
+          for file in $(find k8s/ -name "*.yaml"); do
+            echo "Validating $file..."
+            if ! grep -q "^apiVersion:" "$file"; then
+              echo "❌ Missing apiVersion in $file"
+              exit 1
+            fi
+            if ! grep -q "^kind:" "$file"; then
+              echo "❌ Missing kind in $file"
+              exit 1
+            fi
+          done
+          echo "✅ All manifests have required fields"
+
+  # Job 4: Security scanning (optional)
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
+        continue-on-error: true
+
+      - name: Upload Trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+
+  # Job 5: Deploy notification
+  notify:
+    name: Deployment Notification
+    runs-on: ubuntu-latest
+    needs: [build, update-manifests]
+    if: always()
+
+    steps:
+      - name: Job status
+        run: |
+          echo "Build Status: ${{ needs.build.result }}"
+          echo "Manifest Update Status: ${{ needs.update-manifests.result }}"
+
+      - name: Success notification
+        if: needs.build.result == 'success' && needs.update-manifests.result == 'success'
+        run: |
+          echo "✅ Pipeline completed successfully!"
+          echo "Images pushed to Docker Hub"
+          echo "Kubernetes manifests updated"
+          echo "ArgoCD will auto-sync to the cluster"
+
+      - name: Failure notification
+        if: failure()
+        run: |
+          echo "❌ Pipeline failed. Check logs for details."
+          exit 1

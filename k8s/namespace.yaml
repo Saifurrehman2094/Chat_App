@@ -1,0 +1,13 @@
+---
+# ChatApp Kubernetes Namespace
+# Provides logical isolation for all ChatApp resources
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chatapp
+  labels:
+    name: chatapp
+    app: chatapp
+  annotations:
+    description: "Namespace for ChatApp microservices"

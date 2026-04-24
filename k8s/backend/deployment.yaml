@@ -1,0 +1,152 @@
+---
+# Backend Node.js Deployment
+# Runs Express.js API server with Socket.IO
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: chatapp
+  labels:
+    app: backend
+spec:
+  replicas: 2  # 2 replicas for availability
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0  # Always maintain at least 1 pod
+  
+  selector:
+    matchLabels:
+      app: backend
+  
+  template:
+    metadata:
+      labels:
+        app: backend
+        tier: api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+    
+    spec:
+      # Security context
+      securityContext:
+        fsGroup: 1001  # nodejs user group
+      
+      # Pod termination grace period
+      terminationGracePeriodSeconds: 30
+      
+      containers:
+        - name: backend
+          image: chatapp-backend:latest  # Built from Chat_App/backend/Dockerfile
+          imagePullPolicy: IfNotPresent
+          
+          # Ports
+          ports:
+            - containerPort: 3000
+              name: http
+              protocol: TCP
+          
+          # Environment variables from ConfigMap and Secrets
+          env:
+            # From ConfigMap
+            - name: NODE_ENV
+              value: "production"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: chatapp-config
+                  key: LOG_LEVEL
+            
+            # Database configuration
+            - name: MYSQL_HOST
+              value: "mysql.chatapp.svc.cluster.local"  # Kubernetes DNS
+            - name: MYSQL_PORT
+              value: "3306"
+            - name: MYSQL_DATABASE
+              value: "chat_app"
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: mysql-user
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: mysql-password
+            
+            # Application configuration
+            - name: PORT
+              value: "3000"
+            - name: FRONTEND_URL
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: FRONTEND_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: JWT_SECRET
+          
+          # Resource requests and limits
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          
+          # Liveness probe - checks if backend is alive
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+              scheme: HTTP
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          
+          # Readiness probe - checks if backend is ready to accept traffic
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
+          
+          # Security context for container
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1001  # nodejs user
+            capabilities:
+              drop:
+                - ALL
+      
+      # Pod scheduling and affinity
+      affinity:
+        # Pod anti-affinity: spread replicas across nodes if possible
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - backend
+                topologyKey: kubernetes.io/hostname
+      
+      # Restart policy
+      restartPolicy: Always

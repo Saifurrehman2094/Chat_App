@@ -1,0 +1,77 @@
+---
+# Kustomization file for ChatApp Kubernetes manifests
+# Allows composable and customizable deployments
+# Usage: kubectl apply -k k8s/
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: chatapp
+
+# Namespace creation
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secrets-template.yaml
+  - mysql/pvc.yaml
+  - mysql/secret.yaml
+  - mysql/service.yaml
+  - mysql/deployment.yaml
+  - backend/service.yaml
+  - backend/deployment.yaml
+  - frontend/service.yaml
+  - frontend/deployment.yaml
+  - nginx/service.yaml
+  - nginx/deployment.yaml
+
+# Common labels applied to all resources
+commonLabels:
+  app.kubernetes.io/name: chatapp
+  app.kubernetes.io/part-of: chatapp
+
+# Common annotations
+commonAnnotations:
+  app.kubernetes.io/version: "1.0.0"
+
+# Image replacement (useful for CI/CD)
+images:
+  - name: chatapp-backend
+    newTag: "latest"
+  - name: chatapp-frontend
+    newTag: "latest"
+  - name: chatapp-nginx
+    newTag: "latest"
+  - name: chatapp-mysql
+    newTag: "latest"
+
+# Replica scaling
+replicas:
+  - name: backend
+    count: 2
+  - name: frontend
+    count: 2
+  - name: nginx-gateway
+    count: 1
+
+# Vars for token replacement (if needed)
+vars:
+  - name: DOMAIN
+    value: example.com
+  - name: NAMESPACE
+    value: chatapp
+
+# Patches (apply post-processing)
+# patchesStrategicMerge:
+#   - patches/backend-patch.yaml
+
+# Patches with JSON
+# patchesJson6902:
+#   - target:
+#       group: apps
+#       version: v1
+#       kind: Deployment
+#       name: backend
+#     patch: |-
+#       - op: replace
+#         path: /spec/replicas
+#         value: 3

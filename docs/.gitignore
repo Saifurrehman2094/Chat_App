@@ -1,0 +1,33 @@
+# Documentation .gitignore
+
+# Sensitive documentation (NEVER commit)
+SECRETS.md
+API_KEYS.md
+*-credentials.md
+passwords.md
+AWS_CREDENTIALS.md
+PRIVATE_KEYS.md
+
+# Build artifacts
+_site/
+.jekyll-cache/
+.jekyll-metadata
+
+# Editor backups
+*.bak
+*.backup
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Local overrides
+local-*.md
+*.local.md

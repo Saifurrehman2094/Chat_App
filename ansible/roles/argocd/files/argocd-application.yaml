@@ -1,0 +1,61 @@
+---
+# ArgoCD Application for ChatApp
+# Monitors the k8s/ folder in the repository and auto-syncs
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: chatapp
+  namespace: argocd
+spec:
+  # Project the application belongs to
+  project: default
+
+  # Git repository where manifests are stored
+  source:
+    repoURL: https://github.com/YOUR_USERNAME/Chat_App
+    targetRevision: main
+    path: k8s/
+
+    # If using Helm
+    # chart: chatapp
+    # helm:
+    #   values: |
+    #     image:
+    #       tag: latest
+
+  # Destination cluster
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: chatapp
+
+  # Sync policy
+  syncPolicy:
+    # Auto-sync when changes are detected
+    automated:
+      prune: true # Remove resources not tracked by ArgoCD
+      selfHeal: true # Re-apply manifests if changed manually
+      allow:
+        empty: false
+
+    # Sync options
+    syncOptions:
+      - CreateNamespace=true
+
+    # Retry configuration
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Health assessment rules
+  ignoreDifferences:
+    - group: "apps"
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+
+  # Additional project settings
+  revisionHistoryLimit: 5

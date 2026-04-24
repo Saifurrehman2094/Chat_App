@@ -1,0 +1,140 @@
+---
+# MicroK8s Role - Install and configure lightweight Kubernetes
+
+- name: Check if snapd is installed
+  command: which snap
+  register: snap_installed
+  changed_when: false
+  failed_when: false
+
+- name: Install snapd
+  apt:
+    name: snapd
+    state: present
+  when: snap_installed.rc != 0
+  retries: 3
+  delay: 10
+
+- name: Enable and start snapd
+  systemd:
+    name: snapd
+    state: started
+    enabled: yes
+
+- name: Wait for snapd to be ready
+  shell: snap wait system seed.loaded
+  retries: 10
+  delay: 5
+
+- name: Install MicroK8s snap
+  snap:
+    name: microk8s
+    classic: yes
+    state: present
+    channel: "{{ microk8s_version }}/stable"
+  environment:
+    PATH: "/snap/bin:{{ ansible_env.PATH }}"
+  retries: 5
+  delay: 30
+
+- name: Add ubuntu user to microk8s group
+  user:
+    name: ubuntu
+    groups: microk8s,docker
+    append: yes
+
+- name: Wait for MicroK8s to start
+  shell: /snap/bin/microk8s status
+  register: microk8s_status
+  until: microk8s_status.rc == 0
+  retries: 30
+  delay: 10
+
+- name: Enable MicroK8s addons
+  shell: /snap/bin/microk8s enable {{ item }}
+  loop: "{{ microk8s_addons.split(',') | map('trim') | list }}"
+  register: addon_result
+  failed_when:
+    - addon_result.rc != 0
+    - "'already enabled' not in addon_result.stdout"
+  changed_when:
+    - addon_result.rc == 0
+    - "'already enabled' not in addon_result.stdout"
+
+- name: Create kubeconfig directory
+  file:
+    path: /home/ubuntu/.kube
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: 0700
+
+- name: Export MicroK8s kubeconfig
+  shell: /snap/bin/microk8s config > /home/ubuntu/.kube/config
+  changed_when: true
+
+- name: Set kubeconfig permissions
+  file:
+    path: /home/ubuntu/.kube/config
+    owner: ubuntu
+    group: ubuntu
+    mode: 0600
+
+- name: Copy kubeconfig to root home
+  shell: cp /home/ubuntu/.kube/config /root/.kube/config
+  changed_when: true
+
+- name: Wait for CoreDNS to be ready
+  shell: /snap/bin/microk8s kubectl get deployment -n kube-system coredns -o jsonpath='{.status.readyReplicas}'
+  register: coredns_ready
+  until: coredns_ready.stdout | int > 0
+  retries: 30
+  delay: 10
+
+- name: Verify MicroK8s cluster status
+  shell: /snap/bin/microk8s status
+  register: microk8s_status_final
+  changed_when: false
+
+- name: Display MicroK8s status
+  debug:
+    var: microk8s_status_final.stdout_lines
+
+- name: Create alias for kubectl
+  copy:
+    content: |
+      alias microk8s-kubectl="/snap/bin/microk8s kubectl"
+      alias kubectl="/snap/bin/microk8s kubectl"
+    dest: /etc/profile.d/microk8s-alias.sh
+    mode: 0644
+
+- name: Get cluster info
+  shell: /snap/bin/microk8s kubectl cluster-info
+  register: cluster_info
+  changed_when: false
+
+- name: Display cluster info
+  debug:
+    var: cluster_info.stdout_lines
+
+- name: Get nodes
+  shell: /snap/bin/microk8s kubectl get nodes -o wide
+  register: nodes_info
+  changed_when: false
+
+- name: Display nodes
+  debug:
+    var: nodes_info.stdout_lines
+
+- name: Create namespace for ChatApp
+  shell: /snap/bin/microk8s kubectl create namespace {{ app_namespace }} --dry-run=client -o yaml | /snap/bin/microk8s kubectl apply -f -
+  changed_when: false
+
+- name: Verify namespace creation
+  shell: /snap/bin/microk8s kubectl get namespace {{ app_namespace }}
+  register: namespace_check
+  changed_when: false
+
+- name: Display namespace info
+  debug:
+    var: namespace_check.stdout_lines

@@ -1,0 +1,29 @@
+---
+# Nginx Gateway External Service
+# Provides NodePort access to frontend and API
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-gateway
+  namespace: chatapp
+  labels:
+    app: nginx-gateway
+  annotations:
+    description: "External entry point for ChatApp - routes HTTP/WebSocket traffic"
+spec:
+  selector:
+    app: nginx-gateway
+  type: NodePort # Exposes on node port
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      nodePort: 30080 # HTTP access
+      name: http
+    - port: 443
+      targetPort: 443
+      protocol: TCP
+      nodePort: 30443 # HTTPS (future)
+      name: https
+  sessionAffinity: ClientIP

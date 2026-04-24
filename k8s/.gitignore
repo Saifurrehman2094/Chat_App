@@ -1,0 +1,38 @@
+# Kubernetes Manifests .gitignore
+
+# Kubernetes secrets and sensitive data
+secrets.yaml
+secrets-*.yaml
+*-secret.yaml
+# KEEP secrets-template.yaml for reference!
+
+# Generated kubeconfig files
+kubeconfig
+.kube/
+kubeconfig-*
+
+# Local testing artifacts
+*.local.yaml
+local-*.yaml
+kustomization.local.yaml
+
+# Environment specific overrides
+kustomization.override.yaml
+patches/local/
+
+# IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Backup files
+*.backup
+*.bak
+*~
+
+# Temporary testing files
+test-*.yaml
+tmp/
+temp/

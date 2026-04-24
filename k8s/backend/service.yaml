@@ -1,0 +1,21 @@
+---
+# Backend Internal Service
+# Provides stable DNS for nginx gateway and frontend to connect
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: chatapp
+  labels:
+    app: backend
+spec:
+  selector:
+    app: backend
+  type: ClusterIP  # Internal service
+  ports:
+    - port: 3000
+      targetPort: 3000
+      protocol: TCP
+      name: http
+  sessionAffinity: ClientIP  # Route requests from same client to same pod

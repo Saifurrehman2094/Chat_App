@@ -1,0 +1,57 @@
+# Terraform .gitignore
+# Exclude sensitive and auto-generated files from version control
+
+# Terraform State Files (SENSITIVE - DO NOT COMMIT)
+*.tfstate
+*.tfstate.*
+.terraform.tfstate*
+
+# Terraform Variable Files (SENSITIVE - DO NOT COMMIT)
+terraform.tfvars
+terraform.tfvars.json
+*.auto.tfvars
+*.auto.tfvars.json
+
+# Terraform Directories
+.terraform/
+.terraform.lock.hcl
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*~
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-*
+.DS_Store
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Crash dumps
+crash.log
+crash.*.log
+
+# Exclusions for specific files
+!terraform.tfvars.example
+!.gitkeep
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Node
+node_modules/
+npm-debug.log
+
+# Logs
+*.log
+logs/
