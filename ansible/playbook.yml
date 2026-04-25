@@ -8,8 +8,14 @@
   become: yes
 
   pre_tasks:
+    - name: Bootstrap Python setuptools (required for Ansible pip module)
+      ansible.builtin.raw: |
+        apt-get update -qq && \
+        apt-get install -y python3-setuptools python3-pkg-resources python3-pip
+      changed_when: false
+
     - name: Display deployment information
-      debug:
+      ansible.builtin.debug:
         msg: |
           =========================================
           ChatApp Kubernetes Cluster Setup
@@ -22,53 +28,57 @@
           =========================================
 
     - name: Check if system is Ubuntu
-      fail:
+      ansible.builtin.fail:
         msg: "This playbook requires Ubuntu. Current OS: {{ ansible_distribution }}"
       when: ansible_distribution != "Ubuntu"
 
   roles:
-    # Stage 1: System preparation
     - name: Install system dependencies and Docker
       role: common
-      tags:
-        - system
-        - docker
+      tags: [system, docker]
 
-    # Stage 2: MicroK8s installation
     - name: Install and configure MicroK8s
       role: microk8s
-      tags:
-        - microk8s
-        - kubernetes
+      tags: [microk8s, kubernetes]
 
-    # Stage 3: kubectl setup
     - name: Configure kubectl access
       role: kubectl
-      tags:
-        - kubectl
+      tags: [kubectl]
 
-    # Stage 4: ArgoCD deployment
     - name: Deploy ArgoCD for GitOps
       role: argocd
-      tags:
-        - argocd
-        - gitops
+      tags: [argocd, gitops]
 
   post_tasks:
+    - name: Get MicroK8s status
+      ansible.builtin.command: microk8s status
+      register: mk8s_status
+      changed_when: false
+
+    - name: Get cluster info
+      ansible.builtin.command: microk8s kubectl cluster-info
+      register: cluster_info
+      changed_when: false
+
+    - name: Get nodes
+      ansible.builtin.command: microk8s kubectl get nodes -o wide
+      register: nodes_info
+      changed_when: false
+
     - name: Display cluster status
-      debug:
+      ansible.builtin.debug:
         msg: |
           =========================================
           Deployment Complete!
           =========================================
-          MicroK8s Status: 
-          $(microk8s status)
+          MicroK8s Status:
+          {{ mk8s_status.stdout }}
 
           Cluster Info:
-          $(microk8s kubectl cluster-info)
+          {{ cluster_info.stdout }}
 
           Nodes:
-          $(microk8s kubectl get nodes -o wide)
+          {{ nodes_info.stdout }}
 
           Next Steps:
           1. Deploy ChatApp manifests:
@@ -80,28 +90,26 @@
 
           3. Check application pods:
              kubectl get pods -n chatapp
-
           =========================================
 
     - name: Save kubeconfig for local access
-      fetch:
+      ansible.builtin.fetch:
         src: /home/ubuntu/.kube/config
         dest: ./kubeconfig_{{ inventory_hostname }}
         flat: yes
       ignore_errors: yes
 
-  # Handlers cleanup
   handlers:
     - name: Restart docker
-      systemd:
+      ansible.builtin.systemd:
         name: docker
         state: restarted
 
     - name: Restart snapd
-      systemd:
+      ansible.builtin.systemd:
         name: snapd
         state: restarted
 
     - name: Reload system daemon
-      systemd:
+      ansible.builtin.systemd:
         daemon_reload: yes

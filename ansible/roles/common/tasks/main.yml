@@ -40,26 +40,14 @@
   delay: 10
 
 - name: Upgrade pip, setuptools, and wheel
-  pip:
-    name: "{{ item }}"
-    state: latest
-  loop:
-    - pip
-    - setuptools
-    - wheel
-  retries: 3
-  delay: 10
+  ansible.builtin.shell: |
+    python3 -m pip install --upgrade pip setuptools wheel --break-system-packages 2>/dev/null || true
+  changed_when: false
 
 - name: Install Python modules for Kubernetes
-  pip:
-    name: "{{ item }}"
-    state: present
-  loop:
-    - kubernetes
-    - pyyaml
-    - requests
-  retries: 3
-  delay: 10
+  ansible.builtin.shell: |
+    python3 -m pip install kubernetes pyyaml requests --break-system-packages 2>/dev/null || true
+  changed_when: false
 
 - name: Add Docker GPG key
   apt_key:

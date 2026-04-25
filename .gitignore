@@ -304,3 +304,4 @@ config.local.js
 #
 # Safe to upload to GitHub after this is applied!
 # ============================================================================
+k8s/secrets.yaml

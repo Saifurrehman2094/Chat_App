@@ -1,5 +1,5 @@
 # MySQL 8.0 container with initialization
-FROM mysql:8.0-alpine
+FROM mysql:8.0
 
 # Set MySQL root password and configuration
 ENV MYSQL_ROOT_PASSWORD=rootpassword \

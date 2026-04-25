@@ -72,6 +72,15 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN || secrets.DOCKER_PASSWORD }}
 
+      - name: Verify Docker Hub push scope
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          TEST_TAG="${{ env.DOCKER_NAMESPACE }}/chatapp-backend:scope-test-${{ github.run_id }}"
+          docker pull hello-world:latest
+          docker tag hello-world:latest "$TEST_TAG"
+          docker push "$TEST_TAG"
+          docker rmi "$TEST_TAG" || true
+
       - name: Generate image tags
         id: tags
         run: |

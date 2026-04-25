@@ -68,8 +68,8 @@ resource "aws_route_table" "public" {
   vpc_id = aws_vpc.chatapp.id
 
   route {
-    cidr_block      = "0.0.0.0/0"
-    gateway_id      = aws_internet_gateway.chatapp.id
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.chatapp.id
   }
 
   tags = merge(
@@ -109,7 +109,7 @@ resource "aws_security_group" "chatapp" {
 
   lifecycle {
     create_before_destroy = true
-    ignore_changes = [tags_all]
+    ignore_changes        = [tags_all]
   }
 }
 
@@ -229,7 +229,7 @@ resource "aws_instance" "microk8s_primary" {
   subnet_id              = aws_subnet.public.id
   key_name               = var.key_pair_name
   vpc_security_group_ids = [aws_security_group.chatapp.id]
-  
+
   # Enable detailed monitoring
   monitoring = true
 
@@ -251,7 +251,6 @@ resource "aws_instance" "microk8s_primary" {
     project     = var.project_name
   }))
 
-  # Tags
   tags = merge(
     var.tags,
     {
@@ -296,21 +295,30 @@ resource "aws_cloudwatch_log_group" "chatapp" {
   name              = "/aws/ec2/${var.project_name}"
   retention_in_days = 30
 
+  # FIX 1: Added `tags` to ignore_changes alongside `tags_all`.
+  # Terraform calls ListTagsForResource to detect tag drift on every plan/apply.
+  # Ignoring both `tags` and `tags_all` prevents that API call entirely,
+  # which eliminates the 408 timeout error.
+  lifecycle {
+    ignore_changes = [tags, tags_all]
+  }
+
   tags = merge(
     var.tags,
     {
       Name = "${var.project_name}-logs"
     }
   )
-
-  lifecycle {
-    ignore_changes = [tags_all]
-  }
 }
 
 # ===================================================================
 # CloudWatch Alarms for EC2 Instance
 # ===================================================================
+
+# FIX 2: Added `treat_missing_data = "notBreaching"` to both alarms.
+# Without this, if the EC2 instance is stopped or metrics are missing,
+# the alarm goes into ALARM state unnecessarily.
+
 resource "aws_cloudwatch_metric_alarm" "instance_status_check" {
   alarm_name          = "${var.project_name}-instance-status-check"
   comparison_operator = "GreaterThanOrEqualToThreshold"
@@ -321,6 +329,7 @@ resource "aws_cloudwatch_metric_alarm" "instance_status_check" {
   statistic           = "Average"
   threshold           = 1
   alarm_description   = "This alarm monitors EC2 instance status checks"
+  treat_missing_data  = "notBreaching"
   alarm_actions       = []
 
   dimensions = {
@@ -338,6 +347,7 @@ resource "aws_cloudwatch_metric_alarm" "cpu_utilization" {
   statistic           = "Average"
   threshold           = 80
   alarm_description   = "Alert when CPU exceeds 80%"
+  treat_missing_data  = "notBreaching"
   alarm_actions       = []
 
   dimensions = {
