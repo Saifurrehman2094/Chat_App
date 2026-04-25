@@ -20,6 +20,7 @@ on:
       - reopened
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   DOCKER_REGISTRY: docker.io
   DOCKER_NAMESPACE: ${{ secrets.DOCKER_USERNAME }}
   GIT_COMMIT_SHA: ${{ github.sha }}
@@ -35,12 +36,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-
-    outputs:
-      backend-tag: ${{ steps.tags.outputs.backend-tag }}
-      frontend-tag: ${{ steps.tags.outputs.frontend-tag }}
-      nginx-tag: ${{ steps.tags.outputs.nginx-tag }}
-      mysql-tag: ${{ steps.tags.outputs.mysql-tag }}
 
     steps:
       - name: Checkout code
@@ -176,21 +171,30 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Generate manifest image tags
+        id: manifest_tags
+        run: |
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          echo "backend-tag=${{ secrets.DOCKER_USERNAME }}/chatapp-backend:${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "frontend-tag=${{ secrets.DOCKER_USERNAME }}/chatapp-frontend:${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "nginx-tag=${{ secrets.DOCKER_USERNAME }}/chatapp-nginx:${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "mysql-tag=${{ secrets.DOCKER_USERNAME }}/chatapp-mysql:${SHORT_SHA}" >> $GITHUB_OUTPUT
+
       - name: Update Backend image tag
         run: |
-          sed -i "s|image: chatapp-backend:.*|image: ${{ needs.build.outputs.backend-tag }}|g" k8s/backend/deployment.yaml
+          sed -i "s|image: chatapp-backend:.*|image: ${{ steps.manifest_tags.outputs.backend-tag }}|g" k8s/backend/deployment.yaml
 
       - name: Update Frontend image tag
         run: |
-          sed -i "s|image: chatapp-frontend:.*|image: ${{ needs.build.outputs.frontend-tag }}|g" k8s/frontend/deployment.yaml
+          sed -i "s|image: chatapp-frontend:.*|image: ${{ steps.manifest_tags.outputs.frontend-tag }}|g" k8s/frontend/deployment.yaml
 
       - name: Update Nginx image tag
         run: |
-          sed -i "s|image: chatapp-nginx:.*|image: ${{ needs.build.outputs.nginx-tag }}|g" k8s/nginx/deployment.yaml
+          sed -i "s|image: chatapp-nginx:.*|image: ${{ steps.manifest_tags.outputs.nginx-tag }}|g" k8s/nginx/deployment.yaml
 
       - name: Update MySQL image tag
         run: |
-          sed -i "s|image: chatapp-mysql:.*|image: ${{ needs.build.outputs.mysql-tag }}|g" k8s/mysql/deployment.yaml
+          sed -i "s|image: chatapp-mysql:.*|image: ${{ steps.manifest_tags.outputs.mysql-tag }}|g" k8s/mysql/deployment.yaml
 
       - name: Commit and push manifest updates
         run: |
