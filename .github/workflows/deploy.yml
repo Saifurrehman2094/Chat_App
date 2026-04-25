@@ -21,7 +21,7 @@ on:
 
 env:
   DOCKER_REGISTRY: docker.io
-  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  DOCKER_NAMESPACE: ${{ secrets.DOCKER_USERNAME }}
   GIT_COMMIT_SHA: ${{ github.sha }}
   GIT_BRANCH: ${{ github.ref_name }}
   INSTANCE_IP: ${{ secrets.EC2_INSTANCE_IP }}
@@ -54,9 +54,14 @@ jobs:
       - name: Validate Docker Hub secrets
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          if [ -z "${{ secrets.DOCKER_USERNAME }}" ] || [ -z "${{ secrets.DOCKER_PASSWORD }}" ]; then
-            echo "❌ DOCKER_USERNAME or DOCKER_PASSWORD is missing."
-            echo "Create Docker Hub Access Token with Read/Write permissions and store it in DOCKER_PASSWORD."
+          if [ -z "${{ secrets.DOCKER_USERNAME }}" ]; then
+            echo "❌ DOCKER_USERNAME is missing."
+            exit 1
+          fi
+          if [ -z "${{ secrets.DOCKERHUB_TOKEN || secrets.DOCKER_PASSWORD }}" ]; then
+            echo "❌ Docker Hub token is missing."
+            echo "Set DOCKERHUB_TOKEN (preferred) or DOCKER_PASSWORD secret."
+            echo "Token must have Read and Write permissions."
             exit 1
           fi
 
@@ -65,24 +70,24 @@ jobs:
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          password: ${{ secrets.DOCKERHUB_TOKEN || secrets.DOCKER_PASSWORD }}
 
       - name: Generate image tags
         id: tags
         run: |
           SHORT_SHA=$(echo ${{ env.GIT_COMMIT_SHA }} | cut -c1-7)
 
-          echo "backend-tag=${{ env.DOCKER_USERNAME }}/chatapp-backend:${SHORT_SHA}" >> $GITHUB_OUTPUT
-          echo "backend-tag-latest=${{ env.DOCKER_USERNAME }}/chatapp-backend:latest" >> $GITHUB_OUTPUT
+          echo "backend-tag=${{ env.DOCKER_NAMESPACE }}/chatapp-backend:${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "backend-tag-latest=${{ env.DOCKER_NAMESPACE }}/chatapp-backend:latest" >> $GITHUB_OUTPUT
 
-          echo "frontend-tag=${{ env.DOCKER_USERNAME }}/chatapp-frontend:${SHORT_SHA}" >> $GITHUB_OUTPUT
-          echo "frontend-tag-latest=${{ env.DOCKER_USERNAME }}/chatapp-frontend:latest" >> $GITHUB_OUTPUT
+          echo "frontend-tag=${{ env.DOCKER_NAMESPACE }}/chatapp-frontend:${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "frontend-tag-latest=${{ env.DOCKER_NAMESPACE }}/chatapp-frontend:latest" >> $GITHUB_OUTPUT
 
-          echo "nginx-tag=${{ env.DOCKER_USERNAME }}/chatapp-nginx:${SHORT_SHA}" >> $GITHUB_OUTPUT
-          echo "nginx-tag-latest=${{ env.DOCKER_USERNAME }}/chatapp-nginx:latest" >> $GITHUB_OUTPUT
+          echo "nginx-tag=${{ env.DOCKER_NAMESPACE }}/chatapp-nginx:${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "nginx-tag-latest=${{ env.DOCKER_NAMESPACE }}/chatapp-nginx:latest" >> $GITHUB_OUTPUT
 
-          echo "mysql-tag=${{ env.DOCKER_USERNAME }}/chatapp-mysql:${SHORT_SHA}" >> $GITHUB_OUTPUT
-          echo "mysql-tag-latest=${{ env.DOCKER_USERNAME }}/chatapp-mysql:latest" >> $GITHUB_OUTPUT
+          echo "mysql-tag=${{ env.DOCKER_NAMESPACE }}/chatapp-mysql:${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "mysql-tag-latest=${{ env.DOCKER_NAMESPACE }}/chatapp-mysql:latest" >> $GITHUB_OUTPUT
 
       # Backend build and push
       - name: Build and push Backend image
