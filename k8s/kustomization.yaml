@@ -5,7 +5,7 @@ namespace: chatapp
 resources:
   - namespace.yaml
   - configmap.yaml
-  - secrets.yaml
+  - secrets-template.yaml
   - mysql/pvc.yaml
   - mysql/service.yaml
   - mysql/deployment.yaml
@@ -16,9 +16,10 @@ resources:
   - nginx/service.yaml
   - nginx/deployment.yaml
 
-commonLabels:
-  app.kubernetes.io/name: chatapp
-  app.kubernetes.io/part-of: chatapp
+labels:
+  - pairs:
+      app.kubernetes.io/name: chatapp
+      app.kubernetes.io/part-of: chatapp
 
 commonAnnotations:
   app.kubernetes.io/version: "1.0.0"

@@ -51,10 +51,18 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Validate Docker Hub secrets
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          if [ -z "${{ secrets.DOCKER_USERNAME }}" ] || [ -z "${{ secrets.DOCKER_PASSWORD }}" ]; then
+            echo "❌ DOCKER_USERNAME or DOCKER_PASSWORD is missing."
+            echo "Create Docker Hub Access Token with Read/Write permissions and store it in DOCKER_PASSWORD."
+            exit 1
+          fi
+
       - name: Login to Docker Hub
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@v3
-        # FIX 1: Removed the `if` condition so login always runs.
-        # Without login, even PR builds fail with "Username and password required".
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
@@ -86,8 +94,8 @@ jobs:
           tags: |
             ${{ steps.tags.outputs.backend-tag }}
             ${{ steps.tags.outputs.backend-tag-latest }}
-          cache-from: type=registry,ref=${{ env.DOCKER_USERNAME }}/chatapp-backend:buildcache
-          cache-to: type=registry,ref=${{ env.DOCKER_USERNAME }}/chatapp-backend:buildcache,mode=max
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       # Frontend build and push
       - name: Build and push Frontend image
@@ -101,8 +109,8 @@ jobs:
             ${{ steps.tags.outputs.frontend-tag-latest }}
           build-args: |
             VITE_BACKEND_URL=http://${{ secrets.EC2_INSTANCE_IP }}:30080
-          cache-from: type=registry,ref=${{ env.DOCKER_USERNAME }}/chatapp-frontend:buildcache
-          cache-to: type=registry,ref=${{ env.DOCKER_USERNAME }}/chatapp-frontend:buildcache,mode=max
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       # Nginx build and push
       - name: Build and push Nginx image
@@ -114,8 +122,8 @@ jobs:
           tags: |
             ${{ steps.tags.outputs.nginx-tag }}
             ${{ steps.tags.outputs.nginx-tag-latest }}
-          cache-from: type=registry,ref=${{ env.DOCKER_USERNAME }}/chatapp-nginx:buildcache
-          cache-to: type=registry,ref=${{ env.DOCKER_USERNAME }}/chatapp-nginx:buildcache,mode=max
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       # MySQL build and push
       - name: Build and push MySQL image
@@ -127,8 +135,8 @@ jobs:
           tags: |
             ${{ steps.tags.outputs.mysql-tag }}
             ${{ steps.tags.outputs.mysql-tag-latest }}
-          cache-from: type=registry,ref=${{ env.DOCKER_USERNAME }}/chatapp-mysql:buildcache
-          cache-to: type=registry,ref=${{ env.DOCKER_USERNAME }}/chatapp-mysql:buildcache,mode=max
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Image build summary
         run: |
