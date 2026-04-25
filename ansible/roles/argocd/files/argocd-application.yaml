@@ -35,8 +35,7 @@ spec:
     automated:
       prune: true # Remove resources not tracked by ArgoCD
       selfHeal: true # Re-apply manifests if changed manually
-      allow:
-        empty: false
+      allowEmpty: false
 
     # Sync options
     syncOptions:

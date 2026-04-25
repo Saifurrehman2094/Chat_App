@@ -5,11 +5,12 @@
 # SSH Access (for cluster administration)
 # ===================================================================
 resource "aws_vpc_security_group_ingress_rule" "ssh" {
+  for_each                 = toset(var.allowed_ssh_cidrs)
   description              = "SSH access for cluster administration"
   from_port                = 22
   to_port                  = 22
   ip_protocol              = "tcp"
-  cidr_ipv4                = join(",", var.allowed_ssh_cidrs)
+  cidr_ipv4                = each.value
   security_group_id        = aws_security_group.chatapp.id
 
   tags = {

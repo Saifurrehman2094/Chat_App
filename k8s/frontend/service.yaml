@@ -1,6 +1,6 @@
 ---
 # Frontend Internal Service
-# Provides stable DNS for nginx gateway to connect
+# Accessed internally by nginx-gateway
 
 apiVersion: v1
 kind: Service
@@ -12,7 +12,7 @@ metadata:
 spec:
   selector:
     app: frontend
-  type: ClusterIP  # Internal service
+  type: ClusterIP  # Internal only; external access goes through nginx-gateway
   ports:
     - port: 80
       targetPort: 80

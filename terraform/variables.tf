@@ -56,9 +56,9 @@ variable "availability_zone" {
 
 # EC2 Configuration
 variable "instance_type" {
-  description = "EC2 instance type for microk8s cluster (t3.micro recommended, t2.micro if Free Tier available)"
+  description = "EC2 instance type for microk8s cluster (t3.medium recommended for 4 microservices + ArgoCD)"
   type        = string
-  default     = "t3.micro"
+  default     = "t3.medium"
   validation {
     condition     = can(regex("^t[2-4]\\.(micro|small|medium|large|xlarge)$", var.instance_type))
     error_message = "Instance type must be a valid t2, t3, or t4 instance type."

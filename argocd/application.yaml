@@ -47,10 +47,8 @@ spec:
       
       # Self-heal: automatically fix deviations from git state
       selfHeal: true
-      
-      # Allow empty means don't sync if manifests are empty/invalid
-      allow:
-        empty: false
+      # Keep false to prevent sync when manifests render empty
+      allowEmpty: false
     
     # Sync options
     syncOptions:
@@ -116,9 +114,6 @@ spec:
       kind: ResourceQuota
     - group: ''
       kind: LimitRange
-
-  # Namespace resources (allow all)
-  namespaceResourceBlacklist: []
 
   # Deny listed resources
   namespaceResourceBlacklist:

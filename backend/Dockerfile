@@ -1,6 +1,5 @@
-# Multi-stage build for backend
-# Stage 1: Build/Runtime
-FROM node:18-alpine
+# Backend runtime image
+FROM node:18.20.4-alpine
 
 # Set working directory
 WORKDIR /app
@@ -11,8 +10,9 @@ RUN apk add --no-cache dumb-init
 # Copy package files
 COPY package*.json ./
 
-# Install production dependencies only
-RUN npm ci --omit=dev
+# Install production dependencies only.
+# Fallback to npm install if lockfile resolution fails in CI.
+RUN npm ci --omit=dev --no-audit --no-fund || npm install --omit=dev --no-audit --no-fund
 
 # Copy application code
 COPY . .
