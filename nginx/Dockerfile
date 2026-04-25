@@ -4,10 +4,7 @@ FROM nginx:alpine
 # Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Create a non-root user for security
-RUN addgroup -g 1001 -S nginx && \
-    adduser -S nginx -u 1001
-
+# nginx:alpine already provides the nginx user/group.
 USER nginx
 
 # Health check
