@@ -38,7 +38,7 @@ spec:
 
       containers:
         - name: frontend
-          image: chatapp-frontend:latest # Built from Chat_App/frontend/Dockerfile
+          image: 
           imagePullPolicy: IfNotPresent
 
           # Build args passed at deployment (for ArgoCD updates)

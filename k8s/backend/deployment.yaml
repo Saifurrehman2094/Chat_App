@@ -41,7 +41,7 @@ spec:
       
       containers:
         - name: backend
-          image: chatapp-backend:latest  # Built from Chat_App/backend/Dockerfile
+          image: 
           imagePullPolicy: IfNotPresent
           
           # Ports

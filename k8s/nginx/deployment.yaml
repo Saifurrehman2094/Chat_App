@@ -41,7 +41,7 @@ spec:
 
       containers:
         - name: nginx-gateway
-          image: chatapp-nginx:latest # Built from Chat_App/nginx/Dockerfile
+          image: 
           imagePullPolicy: IfNotPresent
 
           # Ports

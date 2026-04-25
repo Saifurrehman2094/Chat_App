@@ -30,7 +30,7 @@ spec:
       
       containers:
         - name: mysql
-          image: chatapp-mysql:latest  # Built from Chat_App/mysql/Dockerfile
+          image: 
           imagePullPolicy: IfNotPresent
           
           # Ports
