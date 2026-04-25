@@ -18,7 +18,7 @@ spec:
   
   # Source repository configuration
   source:
-    repoURL: https://github.com/{{ GITHUB_USERNAME }}/Chat_App
+    repoURL: https://github.com/Saifurrehman2094/Chat_App.git
     targetRevision: main
     path: k8s/
     
@@ -69,7 +69,7 @@ spec:
   # Information configuration
   info:
     - name: GitHub
-      value: https://github.com/{{ GITHUB_USERNAME }}/Chat_App
+      value: https://github.com/Saifurrehman2094/Chat_App
 
   # Additional settings
   revisionHistoryLimit: 5
@@ -99,7 +99,7 @@ spec:
 
   # Source repositories allowed
   sourceRepos:
-    - 'https://github.com/{{ GITHUB_USERNAME }}/Chat_App'
+    - 'https://github.com/Saifurrehman2094/Chat_App.git'
 
   # Destinations allowed
   destinations:

@@ -206,6 +206,43 @@ jobs:
           curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
           sudo mv kustomize /usr/local/bin/
 
+      - name: Ensure secrets template exists for CI validation
+        run: |
+          if [ ! -f k8s/secrets-template.yaml ]; then
+            cat > k8s/secrets-template.yaml <<'EOF'
+          ---
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: mysql-credentials
+            namespace: chatapp
+          type: Opaque
+          stringData:
+            mysql-root-password: "REPLACE_ME"
+            mysql-user: "REPLACE_ME"
+            mysql-password: "REPLACE_ME"
+          ---
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: backend-secrets
+            namespace: chatapp
+          type: Opaque
+          stringData:
+            JWT_SECRET: "REPLACE_ME"
+            FRONTEND_URL: "http://REPLACE_ME:30080"
+          ---
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: frontend-secrets
+            namespace: chatapp
+          type: Opaque
+          stringData:
+            VITE_BACKEND_URL: "http://REPLACE_ME:30080"
+          EOF
+          fi
+
       - name: Validate Kustomization
         run: |
           kustomize build k8s/ > /dev/null

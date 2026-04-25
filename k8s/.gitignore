@@ -5,6 +5,7 @@ secrets.yaml
 secrets-*.yaml
 *-secret.yaml
 # KEEP secrets-template.yaml for reference!
+!secrets-template.yaml
 
 # Generated kubeconfig files
 kubeconfig
